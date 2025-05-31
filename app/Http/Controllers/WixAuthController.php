@@ -13,7 +13,7 @@ class WixAuthController extends Controller
     {
         $clientId = config('services.wix.app_id');
         $redirectUri = route('wix.callback');
-        $scope = 'stores.products:read stores.collections:read';
+        $scope = 'stores.products:read stores.collections:read ecom.carts:read ecom.carts:write ecom.checkouts:read ecom.checkouts:write ecom.orders:read ecom.orders:write';
         $state = csrf_token();
         $url = "https://www.wix.com/installer/install?client_id={$clientId}&redirect_uri={$redirectUri}&scope={$scope}&state={$state}";
         return redirect($url);

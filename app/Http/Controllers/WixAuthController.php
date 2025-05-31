@@ -23,8 +23,8 @@ class WixAuthController extends Controller
     {
         Log::info('WIX CALLBACK CALLED', $request->all());
         $code = $request->input('code');
-        $clientId = config('services.wix.app_id');
-        $clientSecret = config('services.wix.app_secret');
+        $clientId = env('WIX_APP_ID');
+        $clientSecret = env('WIX_APP_SECRET');
         $redirectUri = route('wix.callback');
 
         $response = Http::withHeaders([

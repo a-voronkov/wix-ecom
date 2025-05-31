@@ -72,12 +72,13 @@ class WixAuthController extends Controller
         $clientSecret  = env('WIX_APP_SECRET');
         $redirect      = route('wix.callback');
 
-        $response = Http::asForm()->post('https://www.wixapis.com/oauth/access', [
+        $response = Http::asJson()                 // → установит Content-Type: application/json
+        ->post('https://www.wixapis.com/oauth/access', [
             'grant_type'    => 'authorization_code',
-            'client_id'     => $clientId,
-            'client_secret' => $clientSecret,
+            'client_id'     => config('services.wix.app_id'),
+            'client_secret' => config('services.wix.app_secret'),
             'code'          => $code,
-            'redirect_uri'  => $redirect,          // обязателен!
+            'redirect_uri'  => route('wix.callback'),   // можно оставить, Wix не против
         ]);
 
         $data = $response->json();

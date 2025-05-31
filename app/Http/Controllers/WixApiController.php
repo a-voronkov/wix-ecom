@@ -69,7 +69,7 @@ class WixApiController extends Controller
         if (empty($ids)) {
             $cacheKey = 'wix_products_all';
             return Cache::remember($cacheKey, 60, function () {
-                $token = self::getAccessToken();
+                $token = env('WIX_API_KEY');
                 $siteId = env('WIX_SITE_ID');
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
@@ -95,7 +95,7 @@ class WixApiController extends Controller
         }
         $cacheKey = 'wix_products_' . md5(json_encode($ids));
         return Cache::remember($cacheKey, 60, function () use ($ids) {
-            $token = self::getAccessToken();
+            $token = env('WIX_API_KEY');
             $siteId = env('WIX_SITE_ID');
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -328,7 +328,6 @@ class WixApiController extends Controller
         if (!$wixCustomer || empty($wixCustomer['id'])) {
             return null;
         }
-
         $contactId = $wixCustomer['id'];
         $appId = '215238eb-22a5-4c36-9e7b-e7c08025e04e'; // Wix Stores App ID
         $lineItems = [];
@@ -360,7 +359,6 @@ class WixApiController extends Controller
                 ]
             ]
         ];
-        
         $token = self::getAccessToken();
         $siteId = env('WIX_SITE_ID');
         $response = \Illuminate\Support\Facades\Http::withHeaders([
@@ -368,7 +366,13 @@ class WixApiController extends Controller
             'wix-site-id' => $siteId,
             'Content-Type' => 'application/json',
         ])->post('https://www.wixapis.com/ecom/v1/carts', $payload);
-dd($response->json());
+        if (!$response->successful()) {
+            Log::error('Wix API: createCart failed', [
+                'endpoint' => 'ecom/v1/carts',
+                'payload' => $payload,
+                'response' => $response->body()
+            ]);
+        }
         if ($response->successful()) {
             return $response->json();
         }

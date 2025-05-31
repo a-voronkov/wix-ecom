@@ -17,7 +17,7 @@ class WixApiController extends Controller
      *
      * @return string|null
      */
-    public static function getAccessToken()
+    public static function getAccessToken($strict = false)
     {
         $token = Setting::get('wix_access_token');
         $expiresAt = Setting::get('wix_access_token_expires_at');
@@ -45,13 +45,14 @@ class WixApiController extends Controller
                 }
                 return $data['access_token'];
             } else {
-                // Fallback to API key from settings
-                $apiKey = Setting::get('wix_api_key');
-                return $apiKey;
+                if (!$strict) {
+                    $apiKey = Setting::get('wix_api_key');
+                    return $apiKey;
+                }
+                return null;
             }
         }
-        // If no token at all, fallback to API key
-        if (!$token) {
+        if (!$token && !$strict) {
             $apiKey = Setting::get('wix_api_key');
             return $apiKey;
         }
@@ -359,10 +360,14 @@ class WixApiController extends Controller
                 ]
             ]
         ];
-        $token = self::getAccessToken();
+        $token = self::getAccessToken(true); // strict mode: only OAuth token
+        if (!$token) {
+            Log::error('Wix API: createCart failed - OAuth token required');
+            return null;
+        }
         $siteId = env('WIX_SITE_ID');
         $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => $token,
+            'Authorization' => 'Bearer ' . $token,
             'wix-site-id' => $siteId,
             'Content-Type' => 'application/json',
         ])->post('https://www.wixapis.com/ecom/v1/carts', $payload);

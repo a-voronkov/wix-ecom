@@ -135,7 +135,7 @@ class WixApiController extends Controller
     {
         $cacheKey = 'wix_categories_all';
         return Cache::remember($cacheKey, 60, function () {
-            $token = self::getAccessToken();
+            $token = env('WIX_API_KEY');
             $siteId = env('WIX_SITE_ID');
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -170,7 +170,7 @@ class WixApiController extends Controller
     {
         $cacheKey = 'wix_product_slug_' . md5($slug);
         return Cache::remember($cacheKey, 60, function () use ($slug) {
-            $token = self::getAccessToken();
+            $token = env('WIX_API_KEY');
             $siteId = env('WIX_SITE_ID');
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -201,7 +201,7 @@ class WixApiController extends Controller
     {
         $cacheKey = 'wix_products_filtered-' . md5(json_encode($filter));
         return Cache::remember($cacheKey, 60, function () use ($filter) {
-            $token = self::getAccessToken();
+            $token = env('WIX_API_KEY');
             $siteId = env('WIX_SITE_ID');
             $query = [
                 'paging' => [
@@ -249,7 +249,7 @@ class WixApiController extends Controller
      */
     public static function findCustomerByEmail($email)
     {
-        $token = self::getAccessToken();
+        $token = env('WIX_API_KEY');
         $siteId = env('WIX_SITE_ID');
         $url = 'https://www.wixapis.com/contacts/v4/contacts/query';
         $response = Http::withHeaders([
@@ -301,7 +301,7 @@ class WixApiController extends Controller
             ],
             'allowDuplicates' => false,
         ];
-        $token = self::getAccessToken();
+        $token = env('WIX_API_KEY');
         $siteId = env('WIX_SITE_ID');
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $token,

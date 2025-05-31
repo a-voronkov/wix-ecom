@@ -56,6 +56,7 @@ class WixAuthController extends Controller
         } else {
             Log::error('WIX CALLBACK ERROR: no access_token', $data);
         }
+        dd(['success' => $success, 'data' => $data, 'response' => $response, 'request' => $request->all()]);
         if ($success) {
             return redirect('/')->with('success', 'Wix connected!');
         } else {

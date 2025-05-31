@@ -4,9 +4,59 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+use App\Helpers\Setting;
 
 class WixApiController extends Controller
 {
+    
+    /**
+     * Get current Wix access token from settings. If expired, return null (or refresh in future).
+     *
+     * @return string|null
+     */
+    public static function getAccessToken()
+    {
+        $token = Setting::get('wix_access_token');
+        $expiresAt = Setting::get('wix_access_token_expires_at');
+        if ($expiresAt && \Carbon\Carbon::parse($expiresAt)->isPast()) {
+            // Try to refresh token
+            $refreshToken = Setting::get('wix_refresh_token');
+            $clientId = config('services.wix.client_id');
+            $clientSecret = config('services.wix.client_secret');
+            $url = 'https://www.wix.com/oauth/access';
+            $response = \Illuminate\Support\Facades\Http::asForm()->post($url, [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $refreshToken,
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+            ]);
+            if ($response->successful()) {
+                $data = $response->json();
+                Setting::set('wix_access_token', $data['access_token']);
+                if (isset($data['refresh_token'])) {
+                    Setting::set('wix_refresh_token', $data['refresh_token']);
+                }
+                if (isset($data['expires_in'])) {
+                    $newExpiresAt = now()->addSeconds($data['expires_in']);
+                    Setting::set('wix_access_token_expires_at', $newExpiresAt);
+                }
+                return $data['access_token'];
+            } else {
+                // Fallback to API key from settings
+                $apiKey = Setting::get('wix_api_key');
+                return $apiKey;
+            }
+        }
+        // If no token at all, fallback to API key
+        if (!$token) {
+            $apiKey = Setting::get('wix_api_key');
+            return $apiKey;
+        }
+        return $token;
+    }
+    
     /**
      * Get products by their IDs from Wix API, with caching.
      *
@@ -18,7 +68,7 @@ class WixApiController extends Controller
         if (empty($ids)) {
             $cacheKey = 'wix_products_all';
             return Cache::remember($cacheKey, 60, function () {
-                $token = env('WIX_API_KEY');
+                $token = self::getAccessToken();
                 $siteId = env('WIX_SITE_ID');
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
@@ -37,7 +87,7 @@ class WixApiController extends Controller
         }
         $cacheKey = 'wix_products_' . md5(json_encode($ids));
         return Cache::remember($cacheKey, 60, function () use ($ids) {
-            $token = env('WIX_API_KEY');
+            $token = self::getAccessToken();
             $siteId = env('WIX_SITE_ID');
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -70,7 +120,7 @@ class WixApiController extends Controller
     {
         $cacheKey = 'wix_categories_all';
         return Cache::remember($cacheKey, 60, function () {
-            $token = env('WIX_API_KEY');
+            $token = self::getAccessToken();
             $siteId = env('WIX_SITE_ID');
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -105,7 +155,7 @@ class WixApiController extends Controller
     {
         $cacheKey = 'wix_product_slug_' . md5($slug);
         return Cache::remember($cacheKey, 60, function () use ($slug) {
-            $token = env('WIX_API_KEY');
+            $token = self::getAccessToken();
             $siteId = env('WIX_SITE_ID');
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -136,7 +186,7 @@ class WixApiController extends Controller
     {
         $cacheKey = 'wix_products_filtered-' . md5(json_encode($filter));
         return Cache::remember($cacheKey, 60, function () use ($filter) {
-            $token = env('WIX_API_KEY');
+            $token = self::getAccessToken();
             $siteId = env('WIX_SITE_ID');
             $query = [
                 'paging' => [
@@ -184,11 +234,11 @@ class WixApiController extends Controller
      */
     public static function findCustomerByEmail($email)
     {
-        $apiKey = env('WIX_API_KEY');
+        $token = self::getAccessToken();
         $siteId = env('WIX_SITE_ID');
         $url = 'https://www.wixapis.com/contacts/v4/contacts/query';
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
+            'Authorization' => 'Bearer ' . $token,
             'wix-site-id' => $siteId,
             'Content-Type' => 'application/json',
         ])->post($url, [
@@ -236,10 +286,10 @@ class WixApiController extends Controller
             ],
             'allowDuplicates' => false,
         ];
-        $apiKey = env('WIX_API_KEY');
+        $token = self::getAccessToken();
         $siteId = env('WIX_SITE_ID');
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
+            'Authorization' => 'Bearer ' . $token,
             'wix-site-id' => $siteId,
             'Content-Type' => 'application/json',
         ])->post('https://www.wixapis.com/contacts/v4/contacts', $payload);
@@ -296,10 +346,10 @@ class WixApiController extends Controller
             ]
         ];
         
-        $apiKey = env('WIX_API_KEY');
+        $token = self::getAccessToken();
         $siteId = env('WIX_SITE_ID');
         $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => $apiKey,
+            'Authorization' => $token,
             'wix-site-id' => $siteId,
             'Content-Type' => 'application/json',
         ])->post('https://www.wixapis.com/ecom/v1/carts', $payload);
@@ -346,10 +396,10 @@ dd($response->json());
             'billingAddress' => $billingAddress ?? $addressStub,
             'email' => $userEmail,
         ];
-        $apiKey = env('WIX_API_KEY');
+        $token = self::getAccessToken();
         $siteId = env('WIX_SITE_ID');
         $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
+            'Authorization' => 'Bearer ' . $token,
             'wix-site-id' => $siteId,
             'Content-Type' => 'application/json',
         ])->post($url, $payload);
@@ -372,10 +422,10 @@ dd($response->json());
             'savePaymentMethod' => false,
             'delayCapture' => true,
         ];
-        $apiKey = env('WIX_API_KEY');
+        $token = self::getAccessToken();
         $siteId = env('WIX_SITE_ID');
         $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
+            'Authorization' => 'Bearer ' . $token,
             'wix-site-id' => $siteId,
             'Content-Type' => 'application/json',
         ])->post($url, $payload);
@@ -411,10 +461,10 @@ dd($response->json());
                 ]
             ]
         ];
-        $apiKey = env('WIX_API_KEY');
+        $token = self::getAccessToken();
         $siteId = env('WIX_SITE_ID');
         $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
+            'Authorization' => 'Bearer ' . $token,
             'wix-site-id' => $siteId,
             'Content-Type' => 'application/json',
         ])->post($url, $payload);
@@ -423,4 +473,5 @@ dd($response->json());
         }
         return null;
     }
+
 } 

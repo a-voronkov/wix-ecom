@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -49,6 +50,9 @@ class ProductController extends Controller
         $q = $request->query('q');
         // Convert category names to collection ids
         $categoriesData = \App\Http\Controllers\WixApiController::getCategories();
+        if (empty($categoriesData['collections'])) {
+            Log::error('Wix API: Failed to fetch categories', ['response' => $categoriesData]);
+        }
         $categoriesList = $categoriesData['collections'] ?? [];
         $categoryIds = [];
         if (!empty($category)) {
@@ -73,6 +77,9 @@ class ProductController extends Controller
             $filter['name'] = $q;
         }
         $data = \App\Http\Controllers\WixApiController::getProductsFiltered($filter);
+        if (empty($data['products'])) {
+            Log::error('Wix API: Failed to fetch products', ['filter' => $filter, 'response' => $data]);
+        }
         $products = $data['products'] ?? [];
         // Cast price to float for number_format compatibility
         foreach ($products as &$product) {
@@ -114,8 +121,14 @@ class ProductController extends Controller
     public function show($slug)
     {
         $data = \App\Http\Controllers\WixApiController::getProductBySlug($slug);
+        if (empty($data['products'])) {
+            Log::error('Wix API: Failed to fetch product by slug', ['slug' => $slug, 'response' => $data]);
+        }
         $product = null;
         $categoriesData = \App\Http\Controllers\WixApiController::getCategories();
+        if (empty($categoriesData['collections'])) {
+            Log::error('Wix API: Failed to fetch categories (show)', ['response' => $categoriesData]);
+        }
         $categories = $categoriesData['collections'] ?? [];
         if (!empty($data['products'][0])) {
             $product = $data['products'][0];

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Helpers\Setting;
+use Illuminate\Support\Facades\Log;
 
 class WixApiController extends Controller
 {
@@ -82,6 +83,13 @@ class WixApiController extends Controller
                         ]
                     ]
                 ]);
+                if (!$response->successful()) {
+                    Log::error('Wix API: getProductsByIds (all) failed', [
+                        'endpoint' => 'stores/v1/products/query',
+                        'params' => [],
+                        'response' => $response->body()
+                    ]);
+                }
                 return $response->json();
             });
         }
@@ -106,6 +114,13 @@ class WixApiController extends Controller
                     ]
                 ]
             ]);
+            if (!$response->successful()) {
+                Log::error('Wix API: getProductsByIds failed', [
+                    'endpoint' => 'stores/v1/products/query',
+                    'params' => $ids,
+                    'response' => $response->body()
+                ]);
+            }
             return $response->json();
         });
     }

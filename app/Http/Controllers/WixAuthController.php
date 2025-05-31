@@ -27,14 +27,15 @@ class WixAuthController extends Controller
         $clientSecret = env('WIX_APP_SECRET');
         $redirectUri = route('wix.callback');
 
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-        ])->post('https://www.wixapis.com/oauth/access', [
+        $payload = [
             'grant_type' => 'authorization_code',
             'client_id' => $clientId,
             'client_secret' => $clientSecret,
             'code' => $code,
-        ]);
+        ];
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+        ])->post('https://www.wixapis.com/oauth/access', $payload);
 
         $data = $response->json();
         Log::info('WIX CALLBACK RESPONSE', $data);
@@ -56,7 +57,13 @@ class WixAuthController extends Controller
         } else {
             Log::error('WIX CALLBACK ERROR: no access_token', $data);
         }
-        dd(['success' => $success, 'data' => $data, 'response' => $response, 'request' => $request->all()]);
+        dd([
+            'success' => $success,
+            'data' => $data,
+            'response' => $response,
+            'request' => $request->all(),
+            'payload' => $payload,
+        ]);
         if ($success) {
             return redirect('/')->with('success', 'Wix connected!');
         } else {

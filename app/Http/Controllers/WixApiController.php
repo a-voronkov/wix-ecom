@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class WixApiController extends Controller
 {
-    
+
     /**
      * Get current Wix access token from settings. If expired, return null (or refresh in future).
      *
@@ -58,7 +58,7 @@ class WixApiController extends Controller
         }
         return $token;
     }
-    
+
     /**
      * Get products by their IDs from Wix API, with caching.
      *
@@ -498,4 +498,49 @@ class WixApiController extends Controller
         return null;
     }
 
-} 
+    public static function getCategoriesCollections()
+    {
+        $cacheKey = 'wix_categories_all';
+        return Cache::remember($cacheKey, now()->addMinutes(60), function () {
+            $token = env('WIX_API_KEY');
+            $siteId = env('WIX_SITE_ID');
+            $collections = [];
+            $offset = 0;
+            $limit = 50;
+
+            do {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $token,
+                    'wix-site-id' => $siteId,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])->post('https://www.wixapis.com/stores-reader/v1/collections/query', [
+                    'query' => [
+                        'paging' => [
+                            'limit' => $limit,
+                            'offset' => $offset,
+                        ],
+                    ],
+                ]);
+
+                Log::info('Wix API response: ', $response->json());
+
+                $data = $response->json();
+                if (empty($data['collections'])) {
+                    break;
+                }
+
+                $filteredCollections = array_filter($data['collections'], function ($col) {
+                    return $col['visible'] && $col['name'] !== 'All Products';
+                });
+
+                $collections = array_merge($collections, array_values($filteredCollections));
+                $offset += $limit;
+            } while (count($data['collections']) === $limit);
+
+            return [
+                'collections' => $collections
+            ];
+        });
+    }
+}

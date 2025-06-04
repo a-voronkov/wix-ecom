@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ProductApiController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -40,3 +41,5 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
     Route::post('/cart/checkout', [OrderController::class, 'createOrder'])->name('cart.checkout');
 });
+
+Route::get('/api/products/{slug}', [ProductApiController::class, 'show']);
